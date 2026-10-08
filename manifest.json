@@ -1,0 +1,37 @@
+[
+  {
+    "name": "MiniMax H3 FastVideo VSA DataFree (4-step, int8 convrot)",
+    "type": "diffusion",
+    "url": "b2:H3-RUNPOD/models/minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors"
+  },
+  {
+    "name": "MiniMax H3 Latent Upscaler BF16 Conservative v5",
+    "type": "diffusion",
+    "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors"
+  },
+  {
+    "name": "MiniMax ref2va BF16",
+    "type": "diffusion",
+    "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_bf16.safetensors"
+  },
+  {
+    "name": "MiniMax ref2va int8 convrot",
+    "type": "diffusion",
+    "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_int8_convrot.safetensors"
+  },
+  {
+    "name": "MiniMax Video Vae",
+    "type": "vae",
+    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors"
+  },
+  {
+    "name": "MiniMax Audio Vae",
+    "type": "vae",
+    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors"
+  },
+  {
+    "name": "qwen3vl_32b_minimax_h3",
+    "type": "text_encoders",
+    "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
+  }
+]
