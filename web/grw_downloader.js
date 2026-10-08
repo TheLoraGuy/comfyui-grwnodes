@@ -126,7 +126,7 @@ function renderList() {
   list.innerHTML = "";
 
   const wantLora = currentTab === "loras";
-  const items = manifestCache.filter((it) => (it.type === "lora") === wantLora);
+  const items = manifestCache.filter((it) => (it.type === "lora" || it.type === "loras") === wantLora);
 
   if (items.length === 0) {
     list.innerHTML = `<div style="color:#777;font-size:13px;">No items in this tab yet — add entries to manifest.json.</div>`;

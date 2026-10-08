@@ -28,11 +28,21 @@ MODELS_DIR = os.path.join(COMFY_ROOT, "models")
 MANIFEST_PATH = os.path.join(BASE_DIR, "manifest.json")
 
 # Maps the "type" field in manifest.json to the ComfyUI models subfolder.
+# Unknown types use the type string itself (so "vae" -> models/vae) instead of
+# silently landing in checkpoints.
 TYPE_FOLDERS = {
     "diffusion": "diffusion_models",
     "unet": "unet",
     "checkpoint": "checkpoints",
+    "checkpoints": "checkpoints",
     "lora": "loras",
+    "loras": "loras",
+    "vae": "vae",
+    "text_encoder": "text_encoders",
+    "text_encoders": "text_encoders",
+    "upscale_models": "upscale_models",
+    "latent_upscaled_models": "latent_upscaled_models",
+    "refmods": "refmods",
 }
 
 # In-memory job tracker: { item_name: {status, percent, speed, eta, error} }
@@ -55,7 +65,8 @@ def load_manifest():
 
 
 def dest_path(item):
-    folder = TYPE_FOLDERS.get(item.get("type"), "checkpoints")
+    model_type = item.get("type") or "checkpoints"
+    folder = TYPE_FOLDERS.get(model_type, model_type)
     filename = item.get("filename") or item["url"].rstrip("/").split("/")[-1]
     return os.path.join(MODELS_DIR, folder, filename)
 

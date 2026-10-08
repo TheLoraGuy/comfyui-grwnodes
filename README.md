@@ -39,12 +39,20 @@ Edit `manifest.json` in this folder. Each entry:
 `type` controls which ComfyUI subfolder the file lands in, and which tab it
 shows up under:
 
-| type         | Tab    | Destination folder      |
-|--------------|--------|--------------------------|
-| `diffusion`  | Models | `models/diffusion_models` |
-| `unet`       | Models | `models/unet`             |
-| `checkpoint` | Models | `models/checkpoints`      |
-| `lora`       | Loras  | `models/loras`             |
+| type                     | Tab    | Destination folder              |
+|--------------------------|--------|---------------------------------|
+| `diffusion`              | Models | `models/diffusion_models`       |
+| `unet`                   | Models | `models/unet`                   |
+| `checkpoint`             | Models | `models/checkpoints`            |
+| `vae`                    | Models | `models/vae`                    |
+| `text_encoders`          | Models | `models/text_encoders`          |
+| `upscale_models`         | Models | `models/upscale_models`         |
+| `latent_upscaled_models` | Models | `models/latent_upscaled_models` |
+| `refmods`                | Models | `models/refmods`                |
+| `lora` or `loras`        | Loras  | `models/loras`                  |
+
+Any other `type` is used as the folder name under `models/` (for example
+`type: "controlnet"` writes to `models/controlnet`).
 
 `url` can be:
 - `b2:bucket/path/to/file.safetensors` (or `b2://...`, both are accepted) —
