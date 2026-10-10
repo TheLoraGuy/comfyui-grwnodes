@@ -45,7 +45,12 @@
     "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
   },
   {
-    "name": "ref2va turbo 8 steps",
+    "name": "REF2V TURBO 8STEPS",
+    "type": "loras",
+    "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
+  },
+  {
+    "name": "PK Parasyte Turbo",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
   },
