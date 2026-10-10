@@ -2,7 +2,7 @@ import { app } from "../../scripts/app.js";
 
 const STYLE = `
 #grw-downloader-btn {
-  position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+  position: fixed; bottom: 80px; right: 16px; z-index: 9999;
   background: #8B5CF6; color: #fff; border: none; padding: 10px 16px;
   border-radius: 8px; cursor: pointer; font-size: 13px;
   box-shadow: 0 2px 8px rgba(0,0,0,.4);
