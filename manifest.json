@@ -6,8 +6,13 @@
   },
   {
     "name": "MiniMax H3 Latent Upscaler BF16 Conservative v5",
-    "type": "diffusion",
+    "type": "latent_upscale_models",
     "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors"
+  },
+  {
+    "name": "minimax_h3_latent_upscaler_3d_conv_v1_bf16",
+    "type": "latent_upscale_models",
+    "url": "hf://LBH-123-AI/Minimax_h3_latent_Upscaler/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors"
   },
   {
     "name": "MiniMax ref2va BF16",
@@ -18,6 +23,11 @@
     "name": "MiniMax ref2va int8 convrot",
     "type": "diffusion",
     "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_int8_convrot.safetensors"
+  },
+  {
+    "name": "10Eros-Max",
+    "type": "diffusion",
+    "url": "hf download hf://TenStrip/10Eros-Max/10Eros_Max_h3_hybrid_beta5.safetensors"
   },
   {
     "name": "MiniMax Video Vae",
@@ -38,5 +48,15 @@
     "name": "ref2va turbo 8 steps",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
+  },
+  {
+    "name": "h3_silu_temb_grid",
+    "type": "h3_adaln",
+    "url": "hf://deAPI-ai/minimax-h3-33b-int8/loras/h3_silu_temb_grid.safetensors"
+  },
+  {
+    "name": "film_net_fp16",
+    "type": "frame_interpolation",
+    "url": "hf://Comfy-Org/frame_interpolation/frame_interpolation/film_net_fp16.safetensors"
   }
 ]
