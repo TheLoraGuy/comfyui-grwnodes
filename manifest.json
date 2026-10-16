@@ -2,7 +2,7 @@
   {
     "name": "MATLOWAI/minimax-h3-fused-turbo-int8-convrot",
     "type": "diffusion",
-    "url": "f://MATLOWAI/minimax-h3-fused-turbo-int8-convrot/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors"
+    "url": "hf://MATLOWAI/minimax-h3-fused-turbo-int8-convrot/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors"
   },
   {
     "name": "MiniMax H3 Latent Upscaler BF16 Conservative v5",
