@@ -59,6 +59,16 @@
     "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
   },
   {
+    "name": "RREELS 750 LoRA",
+    "type": "loras",
+    "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000000750.safetensors"
+  },
+  {
+    "name": "RREELS 1000 LoRA",
+    "type": "loras",
+    "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000001000.safetensors"
+  },
+  {
     "name": "h3_silu_temb_grid",
     "type": "h3_adaln",
     "url": "hf://deAPI-ai/minimax-h3-33b-int8/loras/h3_silu_temb_grid.safetensors"
