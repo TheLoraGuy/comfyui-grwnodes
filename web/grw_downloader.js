@@ -46,6 +46,27 @@ const STYLE = `
 }
 .gr-btn-del:hover { background: #7a2323; color: #fff; }
 .gr-item-actions { display: flex; align-items: center; }
+.gr-group {
+  margin: 8px 0 4px; border: 1px solid #333; border-radius: 8px; overflow: hidden;
+}
+.gr-group-header {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; background: #252525; color: #eee;
+  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  font-family: inherit; text-align: left;
+}
+.gr-group-header:hover { background: #2c2c2c; }
+.gr-group-chevron {
+  color: #aaa; width: 12px; display: inline-block; font-size: 10px;
+  transition: transform .15s ease;
+}
+.gr-group.collapsed .gr-group-chevron { transform: rotate(-90deg); }
+.gr-group-count {
+  margin-left: auto; font-size: 11px; color: #888; font-weight: 400;
+}
+.gr-group-body { padding: 0 12px 4px; }
+.gr-group.collapsed .gr-group-body { display: none; }
+.gr-group .gr-item:last-child { border-bottom: none; }
 #grw-downloader-close { cursor: pointer; color: #aaa; font-size: 18px; background: none; border: none; }
 #grw-downloader-refresh { cursor: pointer; color: #aaa; font-size: 12px; background: none; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; margin-right: 8px; }
 `;
@@ -53,6 +74,20 @@ const STYLE = `
 let manifestCache = [];
 let currentTab = "models";
 const pollTimers = {};
+// Group names the user has collapsed. Survives Refresh so the panel doesn't pop open again.
+const collapsedGroups = new Set();
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function itemGroup(item) {
+  return String(item.group || "").trim();
+}
 
 function injectStyle() {
   if (document.getElementById("grw-downloader-style")) return;
@@ -133,33 +168,69 @@ function renderList() {
     return;
   }
 
-  items.forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "gr-item";
-    row.innerHTML = `
-      <div>
-        <span class="gr-item-name">${item.name}</span>
-        <span class="gr-item-type">${item.type}</span>
-      </div>
-      <div class="gr-item-actions">
-        <button class="gr-btn ${item.installed ? "done" : ""}" data-name="${item.name}">
-          ${item.installed ? "Installed ✓" : "Download"}
-        </button>
-        ${item.installed ? `<button class="gr-btn-del" title="Delete file, free up space">Delete</button>` : ""}
-      </div>
-    `;
-    const button = row.querySelector(".gr-btn");
-    if (!item.installed) {
-      button.onclick = () => startDownload(item.name, button);
-    } else {
-      button.disabled = true;
-    }
-    const delBtn = row.querySelector(".gr-btn-del");
-    if (delBtn) {
-      delBtn.onclick = () => deleteItem(item.name, delBtn, button);
-    }
-    list.appendChild(row);
+  items.filter((item) => !itemGroup(item)).forEach((item) => {
+    list.appendChild(renderItemRow(item));
   });
+
+  const seenGroups = new Set();
+  items.forEach((item) => {
+    const group = itemGroup(item);
+    if (!group || seenGroups.has(group)) return;
+    seenGroups.add(group);
+    const members = items.filter((it) => itemGroup(it) === group);
+    list.appendChild(renderGroup(group, members));
+  });
+}
+
+function renderItemRow(item) {
+  const row = document.createElement("div");
+  row.className = "gr-item";
+  row.innerHTML = `
+    <div>
+      <span class="gr-item-name">${escapeHtml(item.name)}</span>
+      <span class="gr-item-type">${escapeHtml(item.type)}</span>
+    </div>
+    <div class="gr-item-actions">
+      <button class="gr-btn ${item.installed ? "done" : ""}" data-name="${escapeHtml(item.name)}">
+        ${item.installed ? "Installed ✓" : "Download"}
+      </button>
+      ${item.installed ? `<button class="gr-btn-del" title="Delete file, free up space">Delete</button>` : ""}
+    </div>
+  `;
+  const button = row.querySelector(".gr-btn");
+  if (!item.installed) {
+    button.onclick = () => startDownload(item.name, button);
+  } else {
+    button.disabled = true;
+  }
+  const delBtn = row.querySelector(".gr-btn-del");
+  if (delBtn) {
+    delBtn.onclick = () => deleteItem(item.name, delBtn, button);
+  }
+  return row;
+}
+
+function renderGroup(name, members) {
+  const key = `${currentTab}::${name}`;
+  const installed = members.filter((it) => it.installed).length;
+  const section = document.createElement("div");
+  section.className = "gr-group" + (collapsedGroups.has(key) ? " collapsed" : "");
+  section.innerHTML = `
+    <button type="button" class="gr-group-header">
+      <span class="gr-group-chevron">▼</span>
+      <span class="gr-group-title">${escapeHtml(name)}</span>
+      <span class="gr-group-count">${installed}/${members.length} installed</span>
+    </button>
+    <div class="gr-group-body"></div>
+  `;
+  const body = section.querySelector(".gr-group-body");
+  members.forEach((item) => body.appendChild(renderItemRow(item)));
+  section.querySelector(".gr-group-header").onclick = () => {
+    const collapsed = section.classList.toggle("collapsed");
+    if (collapsed) collapsedGroups.add(key);
+    else collapsedGroups.delete(key);
+  };
+  return section;
 }
 
 async function deleteItem(name, delBtn, downloadBtn) {

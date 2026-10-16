@@ -32,9 +32,17 @@ Edit `manifest.json` in this folder. Each entry:
 {
   "name": "Human-readable label shown in the UI",
   "type": "diffusion",
+  "group": "MiniMax H3",
   "url": "b2:H3-RUNPOD/models/your-file.safetensors"
 }
 ```
+
+`group` is optional. Items with no `group` are listed first, as a flat list
+in manifest order. Below them, every item that shares the same `group`
+string is listed together inside one collapsible section (open by default).
+The match is exact after trimming whitespace, so `"MiniMax H3"` and
+`"minimax h3"` are two different sections. A group only collects items on
+the same tab — Models and Loras are filtered before grouping.
 
 `type` controls which ComfyUI subfolder the file lands in, and which tab it
 shows up under:

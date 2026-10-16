@@ -1,18 +1,20 @@
 [
   {
-    "name": "MiniMax H3 FastVideo VSA DataFree (4-step, int8 convrot)",
+    "name": "MATLOWAI/minimax-h3-fused-turbo-int8-convrot",
     "type": "diffusion",
-    "url": "b2:H3-RUNPOD/models/minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors"
+    "url": "f://MATLOWAI/minimax-h3-fused-turbo-int8-convrot/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors"
   },
   {
     "name": "MiniMax H3 Latent Upscaler BF16 Conservative v5",
     "type": "latent_upscale_models",
-    "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors"
+    "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors",
+    "group": "upscalers"
   },
   {
     "name": "minimax_h3_latent_upscaler_3d_conv_v1_bf16",
     "type": "latent_upscale_models",
-    "url": "hf://LBH-123-AI/Minimax_h3_latent_Upscaler/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors"
+    "url": "hf://LBH-123-AI/Minimax_h3_latent_Upscaler/minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors",
+    "group": "upscalers"
   },
   {
     "name": "MiniMax ref2va BF16",
@@ -32,12 +34,14 @@
   {
     "name": "MiniMax Video Vae",
     "type": "vae",
-    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors"
+    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors",
+    "group": "vaes"
   },
   {
     "name": "MiniMax Audio Vae",
     "type": "vae",
-    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors"
+    "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors",
+    "group": "vaes"
   },
   {
     "name": "qwen3vl_32b_minimax_h3",
@@ -47,12 +51,12 @@
   {
     "name": "REF2V TURBO 8STEPS",
     "type": "loras",
-    "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
+    "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
   },
   {
     "name": "PK Parasyte Turbo",
     "type": "loras",
-    "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
+    "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
   },
   {
     "name": "h3_silu_temb_grid",
