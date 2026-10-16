@@ -27,6 +27,11 @@
     "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_int8_convrot.safetensors"
   },
   {
+    "name": "MiniMax ref2va pruned int8 convrot",
+    "type": "diffusion",
+    "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+  },
+  {
     "name": "10Eros-Max",
     "type": "diffusion",
     "url": "hf download hf://TenStrip/10Eros-Max/10Eros_Max_h3_hybrid_beta5.safetensors"
@@ -54,9 +59,19 @@
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
   },
   {
+    "name": "REF2V TURBO 4STEPS",
+    "type": "loras",
+    "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
+  },
+  {
     "name": "PK Parasyte Turbo",
     "type": "loras",
     "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
+  },
+  {
+    "name": "Fast H3 VSA Gate",
+    "type": "loras",
+    "url": "hf://barelymining/ComfyUI-MiniMax-H3-FastVideo/fasth3_vsa_gate.safetensors"
   },
   {
     "name": "RREELS 750 LoRA",
