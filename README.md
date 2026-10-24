@@ -21,6 +21,11 @@ using `rclone` (for `b2:` sources) or the Hugging Face CLI (for `hf://` sources)
 - For `hf://` URLs: the Hugging Face CLI (`hf` or `huggingface-cli`) must be
   on `PATH` — typically `pip install -U "huggingface_hub[cli]"`. Optional:
   `pip install hf_transfer` for faster Hub transfers.
+- Set `HF_TOKEN` on the host. On Vast.ai, template environment variables are
+  stored in `/etc/environment` and are not automatically visible to ComfyUI.
+  The downloader reads that file (and `/workspace/.env`, then the HF token
+  file) and passes the token to the Hugging Face CLI. The Logs panel says
+  where the token was found. It never prints the token itself.
 
 If a tool is missing, downloads show an "Error — retry" state with the reason.
 

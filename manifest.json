@@ -1,11 +1,11 @@
 [
   {
-    "name": "MATLOWAI/minimax-h3-fused-turbo-int8-convrot",
+    "name": "MATLOWAI/h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors",
     "type": "diffusion",
     "url": "hf://MATLOWAI/minimax-h3-fused-turbo-int8-convrot/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors"
   },
   {
-    "name": "MiniMax H3 Latent Upscaler BF16 Conservative v5",
+    "name": "h3_bf16_CONSERVATIVE_v5.safetensors",
     "type": "latent_upscale_models",
     "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors",
     "group": "upscalers"
@@ -17,69 +17,84 @@
     "group": "upscalers"
   },
   {
-    "name": "MiniMax ref2va BF16",
+    "name": "h3_hybrid_fl2va_ref2va_b15-49-int8.safetensors",
+    "type": "diffusion",
+    "url": "hf://smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/minimax_h3_hybrid_fl2va_ref2va_b15-49-int8.safetensors"
+  },
+  {
+    "name": "h3_hybrid_fl2va_ref2va_b20-49-int8.safetensors",
+    "type": "diffusion",
+    "url": "hf://smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/minimax_h3_hybrid_fl2va_ref2va_b20-49-int8.safetensors"
+  },
+  {
+    "name": "minimax_h3_ref2va_bf16.safetensors",
     "type": "diffusion",
     "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_bf16.safetensors"
   },
   {
-    "name": "MiniMax ref2va int8 convrot",
+    "name": "h3_ref2va_int8_convrot.safetensors",
     "type": "diffusion",
     "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_int8_convrot.safetensors"
   },
   {
-    "name": "MiniMax ref2va pruned int8 convrot",
+    "name": "MiniMax fl2va_pruned_int8_convrot",
+    "type": "diffusion",
+    "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+  },
+  {
+    "name": "h3_ref2va_pruned_int8_convrot.safetensors",
     "type": "diffusion",
     "url": "hf://Comfy-Org/MiniMax-H3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
   },
   {
-    "name": "10Eros-Max",
+    "name": "10Eros_Max_h3_hybrid_beta5.safetensors",
     "type": "diffusion",
     "url": "hf://TenStrip/10Eros-Max/10Eros_Max_h3_hybrid_beta5.safetensors"
   },
   {
-    "name": "MiniMax Video Vae",
+    "name": "minimax_h3_video_vae_fp16.safetensors",
     "type": "vae",
     "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors",
     "group": "vaes"
   },
   {
-    "name": "MiniMax Audio Vae",
+    "name": "minimax_h3_audio_vae_fp32.safetensors",
     "type": "vae",
     "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors",
     "group": "vaes"
   },
   {
-    "name": "qwen3vl_32b_minimax_h3",
+    "name": "qwen3vl_32b_minimax_h3_bf16.safetensors",
     "type": "text_encoders",
     "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
   },
   {
-    "name": "REF2V TURBO 8STEPS",
+    "name": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
   },
   {
-    "name": "REF2V TURBO 4STEPS",
+    "name": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
   },
   {
-    "name": "PK Parasyte Turbo",
+    "name": "H3-PK-Parasyte-Turbo.safetensors",
     "type": "loras",
     "url": "hf://Plaguekind/H3-Lora/H3-PK-Parasyte-Turbo.safetensors"
   },
   {
-    "name": "Fast H3 VSA Gate",
+    "name": "fasth3_vsa_gate.safetensors",
     "type": "loras",
     "url": "hf://barelymining/ComfyUI-MiniMax-H3-FastVideo/fasth3_vsa_gate.safetensors"
   },
   {
-    "name": "RREELS 750 LoRA",
+    "name": "rreels_000000750.safetensors",
     "type": "loras",
     "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000000750.safetensors"
   },
   {
-    "name": "RREELS 1000 LoRA",
+    "name": "rreels_000001000.safetensors",
     "type": "loras",
     "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000001000.safetensors"
   },

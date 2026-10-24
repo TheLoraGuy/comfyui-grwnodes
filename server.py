@@ -121,6 +121,96 @@ def normalize_url(url):
     return text, False
 
 
+HF_TOKEN_NAMES = ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_HUB_TOKEN")
+
+
+def parse_env_assignment(line):
+    """Parse one KEY=VALUE line. Vast writes /etc/environment as HF_TOKEN='...'."""
+    text = line.strip()
+    if not text or text.startswith("#"):
+        return None
+    if text.startswith("export "):
+        text = text[7:].strip()
+    if "=" not in text:
+        return None
+    key, value = text.split("=", 1)
+    key = key.strip()
+    if not key:
+        return None
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    return key, value
+
+
+def read_env_file(path):
+    found = {}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                parsed = parse_env_assignment(line)
+                if parsed:
+                    found[parsed[0]] = parsed[1]
+    except OSError:
+        return {}
+    return found
+
+
+def _first_token(mapping):
+    for name in HF_TOKEN_NAMES:
+        token = (mapping.get(name) or "").strip()
+        if token:
+            return token, name
+    return None, None
+
+
+def huggingface_token():
+    """Find the HF token Vast stored outside this process.
+
+    Template environment variables are written to /etc/environment and sourced
+    by Vast's boot shell and login shells. ComfyUI started as a normal process
+    does not load that file, so os.environ often has no HF_TOKEN.
+    """
+    token, name = _first_token(os.environ)
+    if token:
+        return token, f"process environment {name}"
+
+    workspace = os.environ.get("WORKSPACE") or "/workspace"
+    for path in ("/etc/environment", os.path.join(workspace, ".env")):
+        token, name = _first_token(read_env_file(path))
+        if token:
+            return token, f"{path} ({name})"
+
+    homes = []
+    if os.environ.get("HF_HOME"):
+        homes.append(os.environ["HF_HOME"])
+    homes.append(os.path.join(workspace, ".hf_home"))
+    homes.append(os.path.join(os.path.expanduser("~"), ".cache", "huggingface"))
+    for home in homes:
+        path = os.path.join(home, "token")
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                token = handle.read().strip()
+        except OSError:
+            continue
+        if token:
+            return token, path
+    return None, None
+
+
+def apply_hf_token(env):
+    """Copy a discovered token into the download environment. Returns a log line."""
+    token, source = huggingface_token()
+    if not token:
+        return (
+            "Hugging Face auth: no HF_TOKEN in the process environment, "
+            "/etc/environment, the workspace .env, or the HF token file"
+        )
+    env["HF_TOKEN"] = token
+    env["HUGGING_FACE_HUB_TOKEN"] = token
+    return f"Hugging Face auth: using token from {source}"
+
+
 def console(name, message):
     """Print one line. ComfyUI's Logs panel mirrors stdout/stderr."""
     print(f"[GRW] {name}: {message}", flush=True)
@@ -304,6 +394,8 @@ async def run_download(name, item):
         env = os.environ.copy()
         # Faster transfers when hf_transfer is installed (no-op otherwise).
         env.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
+        if url.startswith("hf://") or url.startswith("hf:"):
+            console(name, apply_hf_token(env))
 
         console(name, f"started -> {out}")
         proc = await asyncio.create_subprocess_exec(
