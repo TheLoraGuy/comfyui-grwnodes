@@ -87,8 +87,12 @@ the panel re-fetches it every time you open it or hit Refresh.
 - `server.py` registers four routes on ComfyUI's own web server:
   `/gr_downloader/manifest`, `/gr_downloader/download`, `/gr_downloader/status`,
   `/gr_downloader/delete`.
-- Downloads run as background subprocesses; the panel polls status once a
-  second and shows live percent + speed parsed from rclone's own stats output.
+- Downloads run as background subprocesses. Progress from rclone, Hugging Face,
+  and wget is read live (those tools rewrite one line with carriage returns).
+  Each row shows a percent, a bar, and the latest line. The same lines are
+  printed as `[GRW] <model name>: ...` so they show up in ComfyUI's bottom
+  **Logs** panel (`Ctrl` + `` ` ``). A failure line starts with `FAILED` and
+  includes the tool's last message and the destination path from the start line.
 - "Installed ✓" is determined by simply checking whether the destination file
   already exists on disk — it does not verify checksums.
 - Installed items get a **Delete** button next to them. Clicking it asks for

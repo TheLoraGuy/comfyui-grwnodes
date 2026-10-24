@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import time
 
 from aiohttp import web
 from server import PromptServer
@@ -45,7 +46,7 @@ TYPE_FOLDERS = {
     "refmods": "refmods",
 }
 
-# In-memory job tracker: { item_name: {status, percent, speed, eta, error} }
+# In-memory job tracker: { item_name: {status, percent, speed, eta, error, message, dest} }
 JOBS = {}
 
 PERCENT_RE = re.compile(r"(\d+)%")
@@ -55,6 +56,97 @@ SPEED_RE = re.compile(
     re.IGNORECASE,
 )
 ETA_RE = re.compile(r"(?:ETA|<\s*)\s*([0-9a-zA-Z:]+)", re.IGNORECASE)
+# "1.2 GiB / 10 GiB" or "1.2GiB/10GiB" — used when a tool omits the percent.
+SIZE_PAIR_RE = re.compile(
+    r"([\d.]+)\s*([KMGT]?i?B)\s*/\s*([\d.]+)\s*([KMGT]?i?B)",
+    re.IGNORECASE,
+)
+PASTED_HF_CLI_RE = re.compile(
+    r"^(?:hf|huggingface-cli)\s+download\s+(hf://\S+)",
+    re.IGNORECASE,
+)
+_SIZE_UNITS = {
+    "b": 1,
+    "kb": 1e3, "mb": 1e6, "gb": 1e9, "tb": 1e12,
+    "kib": 1024, "mib": 1024 ** 2, "gib": 1024 ** 3, "tib": 1024 ** 4,
+}
+
+
+def _size_bytes(number, unit):
+    key = unit.lower().replace("bytes", "b").replace("byte", "b")
+    if key.endswith("ib") or key in ("kb", "mb", "gb", "tb"):
+        return float(number) * _SIZE_UNITS.get(key, 1)
+    return float(number) * _SIZE_UNITS.get(key, 1)
+
+
+def push_output(pending, chunk):
+    """Split a stdout chunk on \\n or \\r. Returns (new_pending, complete_lines).
+
+    rclone, wget, and Hugging Face tqdm rewrite one line with carriage returns,
+    so a newline-only reader stays at 0% until the process exits.
+    """
+    text = pending + chunk.replace("\r\n", "\n").replace("\r", "\n")
+    parts = text.split("\n")
+    pending = parts.pop()
+    lines = [part for part in parts if part.strip()]
+    return pending, lines
+
+
+def parse_progress(line):
+    """Return (percent or None, speed, eta) from one tool progress line."""
+    percent = None
+    pm = PERCENT_RE.search(line)
+    if pm:
+        percent = int(pm.group(1))
+    else:
+        pair = SIZE_PAIR_RE.search(line)
+        if pair:
+            done = _size_bytes(pair.group(1), pair.group(2))
+            total = _size_bytes(pair.group(3), pair.group(4))
+            if total > 0:
+                percent = max(0, min(99, int(done * 100 / total)))
+    speed_match = SPEED_RE.search(line)
+    eta_match = ETA_RE.search(line)
+    speed = speed_match.group(1).strip() if speed_match else ""
+    eta = eta_match.group(1) if eta_match else ""
+    return percent, speed, eta
+
+
+def normalize_url(url):
+    """Turn a pasted `hf download hf://...` command into an hf:// URL."""
+    text = (url or "").strip()
+    match = PASTED_HF_CLI_RE.match(text)
+    if match:
+        return match.group(1), True
+    return text, False
+
+
+def console(name, message):
+    """Print one line. ComfyUI's Logs panel mirrors stdout/stderr."""
+    print(f"[GRW] {name}: {message}", flush=True)
+    job = JOBS.get(name)
+    if job is not None:
+        job["message"] = message
+
+
+def fail_job(name, err):
+    JOBS[name].update(status="error", error=err, message=err)
+    console(name, f"FAILED {err}")
+
+
+def job_view(name):
+    job = JOBS.get(name)
+    if not job:
+        return None
+    return {
+        "status": job.get("status", "idle"),
+        "percent": job.get("percent", 0),
+        "speed": job.get("speed", ""),
+        "eta": job.get("eta", ""),
+        "error": job.get("error", ""),
+        "message": job.get("message", ""),
+        "dest": job.get("dest", ""),
+    }
 
 
 def load_manifest():
@@ -130,12 +222,46 @@ def find_downloaded_file(dest_dir, expected_basename):
     return None
 
 
+async def iter_output_lines(stream):
+    pending = ""
+    while True:
+        chunk = await stream.read(8192)
+        if not chunk:
+            if pending.strip():
+                yield pending
+            return
+        pending, lines = push_output(pending, chunk.decode(errors="ignore"))
+        for line in lines:
+            yield line
+
+
+def progress_message(percent, speed, eta):
+    parts = [f"{percent}%"]
+    if speed:
+        parts.append(speed)
+    if eta:
+        parts.append(f"ETA {eta}")
+    return " · ".join(parts)
+
+
 async def run_download(name, item):
-    JOBS[name] = {"status": "downloading", "percent": 0, "speed": "", "eta": "", "error": ""}
+    JOBS[name] = {
+        "status": "downloading",
+        "percent": 0,
+        "speed": "",
+        "eta": "",
+        "error": "",
+        "message": "Starting…",
+        "dest": "",
+    }
     out = dest_path(item)
+    JOBS[name]["dest"] = out
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    url = item["url"]
+    url, rewritten = normalize_url(item.get("url") or "")
     post_move_from = None  # set for hf: may need to flatten nested path -> out
+
+    if rewritten:
+        console(name, f"rewrote pasted CLI command to {url}")
 
     if url.startswith("b2:") or url.startswith("b2://"):
         # Normalize b2:// (as written in chat) down to rclone's expected b2: form.
@@ -150,18 +276,12 @@ async def run_download(name, item):
     elif url.startswith("hf://") or url.startswith("hf:"):
         hf_cli = resolve_hf_cli()
         if not hf_cli:
-            JOBS[name] = {
-                "status": "error", "percent": 0, "speed": "", "eta": "",
-                "error": "Hugging Face CLI not found (install: pip install -U 'huggingface_hub[cli]')",
-            }
+            fail_job(name, "Hugging Face CLI not found (install: pip install -U 'huggingface_hub[cli]')")
             return
         try:
             repo_type, repo_id, file_path = parse_hf_url(url)
         except ValueError as e:
-            JOBS[name] = {
-                "status": "error", "percent": 0, "speed": "", "eta": "",
-                "error": str(e),
-            }
+            fail_job(name, str(e))
             return
 
         dest_dir = os.path.dirname(out)
@@ -177,10 +297,7 @@ async def run_download(name, item):
     elif url.startswith("http://") or url.startswith("https://"):
         cmd = ["wget", "-q", "--show-progress", "-O", out, url]
     else:
-        JOBS[name] = {
-            "status": "error", "percent": 0, "speed": "", "eta": "",
-            "error": f"Unrecognized URL scheme: {url}",
-        }
+        fail_job(name, f"Unrecognized URL scheme: {url}")
         return
 
     try:
@@ -188,6 +305,7 @@ async def run_download(name, item):
         # Faster transfers when hf_transfer is installed (no-op otherwise).
         env.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
 
+        console(name, f"started -> {out}")
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -195,20 +313,41 @@ async def run_download(name, item):
             env=env,
         )
         tail = []
-        async for raw in proc.stdout:
-            line = raw.decode(errors="ignore")
-            tail.append(line.rstrip())
+        last_bucket = -1
+        last_console = 0.0
+        async for line in iter_output_lines(proc.stdout):
+            line = line.strip()
+            if not line:
+                continue
+            tail.append(line)
             if len(tail) > 20:
                 tail.pop(0)
-            pm = PERCENT_RE.search(line)
-            sm = SPEED_RE.search(line)
-            em = ETA_RE.search(line)
-            if pm:
-                JOBS[name]["percent"] = int(pm.group(1))
-            if sm:
-                JOBS[name]["speed"] = sm.group(1).strip()
-            if em:
-                JOBS[name]["eta"] = em.group(1)
+            percent, speed, eta = parse_progress(line)
+            if percent is not None:
+                JOBS[name]["percent"] = percent
+            if speed:
+                JOBS[name]["speed"] = speed
+            if eta:
+                JOBS[name]["eta"] = eta
+            shown = JOBS[name]["percent"]
+            if percent is None:
+                message = line[-180:]
+            else:
+                message = progress_message(shown, JOBS[name]["speed"], JOBS[name]["eta"])
+            JOBS[name]["message"] = message
+            now = time.monotonic()
+            bucket = shown // 5
+            lowered = line.lower()
+            looks_like_error = any(
+                token in lowered
+                for token in ("error", "traceback", "unauthorized", "denied", "not found", "401", "403", "404")
+            )
+            due = last_console == 0.0 or now - last_console >= 15
+            if looks_like_error or (percent is not None and (bucket != last_bucket or due)) or (percent is None and due and message != JOBS[name].get("_logged")):
+                console(name, message)
+                JOBS[name]["_logged"] = message
+                last_bucket = bucket
+                last_console = now
         rc = await proc.wait()
 
         if rc == 0 and post_move_from:
@@ -218,7 +357,8 @@ async def run_download(name, item):
                 shutil.move(found, out)
 
         if rc == 0 and os.path.exists(out):
-            JOBS[name].update(status="done", percent=100)
+            JOBS[name].update(status="done", percent=100, message="Installed")
+            console(name, f"100% installed at {out}")
         else:
             detail = next((t for t in reversed(tail) if t.strip()), "")
             err = f"process exited with code {rc}"
@@ -226,11 +366,11 @@ async def run_download(name, item):
                 err = f"{err}: {detail}"
             if rc == 0 and not os.path.exists(out):
                 err = f"download finished but file missing at {out}"
-            JOBS[name].update(status="error", error=err)
+            fail_job(name, err)
     except FileNotFoundError as e:
-        JOBS[name].update(status="error", error=f"command not found: {e}")
+        fail_job(name, f"command not found: {e}")
     except Exception as e:  # noqa: BLE001 - surface any failure to the UI
-        JOBS[name].update(status="error", error=str(e))
+        fail_job(name, str(e))
 
 
 def setup_routes():
@@ -241,6 +381,9 @@ def setup_routes():
         items = load_manifest()
         for it in items:
             it["installed"] = os.path.exists(dest_path(it))
+            job = job_view(it.get("name", ""))
+            if job:
+                it["job"] = job
         return web.json_response(items)
 
     @routes.post("/grw_downloader/download")
@@ -258,7 +401,7 @@ def setup_routes():
     @routes.get("/grw_downloader/status")
     async def status(request):
         name = request.rel_url.query.get("name", "")
-        return web.json_response(JOBS.get(name, {"status": "idle", "percent": 0}))
+        return web.json_response(job_view(name) or {"status": "idle", "percent": 0})
 
     @routes.post("/grw_downloader/delete")
     async def delete_item(request):

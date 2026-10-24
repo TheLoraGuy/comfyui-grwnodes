@@ -29,10 +29,24 @@ const STYLE = `
 #grw-downloader-list { padding: 12px 18px; overflow-y: auto; flex: 1; }
 .gr-item {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-bottom: 1px solid #333;
+  padding: 10px 0; border-bottom: 1px solid #333; gap: 12px;
 }
+.gr-item-main { flex: 1; min-width: 0; }
 .gr-item-name { font-size: 13px; }
 .gr-item-type { font-size: 11px; color: #888; margin-left: 6px; }
+.gr-progress {
+  display: none; height: 6px; background: #333; border-radius: 3px;
+  margin-top: 6px; overflow: hidden;
+}
+.gr-item.is-downloading .gr-progress { display: block; }
+.gr-progress > span { display: block; height: 100%; width: 0%; background: #8B5CF6; }
+.gr-item-note {
+  display: none; font-size: 11px; color: #999; margin-top: 4px;
+  word-break: break-word;
+}
+.gr-item.is-downloading .gr-item-note,
+.gr-item.is-failed .gr-item-note { display: block; }
+.gr-item.is-failed .gr-item-note { color: #ef9a9a; }
 .gr-btn {
   background: #8B5CF6; border: none; color: #fff; padding: 6px 12px;
   border-radius: 6px; cursor: pointer; font-size: 12px; min-width: 100px; text-align: center;
@@ -183,22 +197,45 @@ function renderList() {
 }
 
 function renderItemRow(item) {
+  const job = item.job || {};
+  const downloading = job.status === "downloading";
+  const failed = job.status === "error" && !item.installed;
   const row = document.createElement("div");
-  row.className = "gr-item";
+  row.className = "gr-item" + (downloading ? " is-downloading" : "") + (failed ? " is-failed" : "");
+  row.dataset.name = item.name;
+  const label = item.installed
+    ? "Installed ✓"
+    : downloading
+      ? buttonLabel(job)
+      : failed
+        ? "Error — retry"
+        : "Download";
   row.innerHTML = `
-    <div>
-      <span class="gr-item-name">${escapeHtml(item.name)}</span>
-      <span class="gr-item-type">${escapeHtml(item.type)}</span>
+    <div class="gr-item-main">
+      <div>
+        <span class="gr-item-name">${escapeHtml(item.name)}</span>
+        <span class="gr-item-type">${escapeHtml(item.type)}</span>
+      </div>
+      <div class="gr-progress"><span></span></div>
+      <div class="gr-item-note"></div>
     </div>
     <div class="gr-item-actions">
-      <button class="gr-btn ${item.installed ? "done" : ""}" data-name="${escapeHtml(item.name)}">
-        ${item.installed ? "Installed ✓" : "Download"}
+      <button class="gr-btn ${item.installed ? "done" : ""} ${downloading ? "downloading" : ""} ${failed ? "error" : ""}">
+        ${escapeHtml(label)}
       </button>
       ${item.installed ? `<button class="gr-btn-del" title="Delete file, free up space">Delete</button>` : ""}
     </div>
   `;
   const button = row.querySelector(".gr-btn");
-  if (!item.installed) {
+  if (downloading) {
+    button.disabled = true;
+    applyJob(row, job);
+    pollStatus(item.name);
+  } else if (failed) {
+    button.disabled = false;
+    applyJob(row, job);
+    button.onclick = () => startDownload(item.name, button);
+  } else if (!item.installed) {
     button.onclick = () => startDownload(item.name, button);
   } else {
     button.disabled = true;
@@ -208,6 +245,49 @@ function renderItemRow(item) {
     delBtn.onclick = () => deleteItem(item.name, delBtn, button);
   }
   return row;
+}
+
+function buttonLabel(job) {
+  const percent = job.percent || 0;
+  return `${percent}%${job.speed ? " " + job.speed : ""}`;
+}
+
+function findRow(name) {
+  const list = document.getElementById("grw-downloader-list");
+  if (!list) return null;
+  return list.querySelector(`.gr-item[data-name="${CSS.escape(name)}"]`);
+}
+
+function applyJob(row, job) {
+  if (!row || !job) return;
+  const button = row.querySelector(".gr-btn");
+  const note = row.querySelector(".gr-item-note");
+  const bar = row.querySelector(".gr-progress > span");
+  const status = job.status;
+  row.classList.toggle("is-downloading", status === "downloading");
+  row.classList.toggle("is-failed", status === "error");
+  if (status === "downloading") {
+    button.disabled = true;
+    button.classList.add("downloading");
+    button.classList.remove("error", "done");
+    button.textContent = buttonLabel(job);
+    if (bar) bar.style.width = `${job.percent || 0}%`;
+    if (note) note.textContent = job.message || `${job.percent || 0}%`;
+  } else if (status === "done") {
+    button.textContent = "Installed ✓";
+    button.classList.remove("downloading", "error");
+    button.classList.add("done");
+    button.disabled = true;
+    if (bar) bar.style.width = "100%";
+    if (note) note.textContent = job.message || "";
+  } else if (status === "error") {
+    button.textContent = "Error — retry";
+    button.title = job.error || "";
+    button.classList.remove("downloading", "done");
+    button.classList.add("error");
+    button.disabled = false;
+    if (note) note.textContent = job.error || job.message || "Download failed";
+  }
 }
 
 function renderGroup(name, members) {
@@ -262,9 +342,7 @@ async function deleteItem(name, delBtn, downloadBtn) {
 }
 
 async function startDownload(name, btn) {
-  btn.disabled = true;
-  btn.classList.add("downloading");
-  btn.textContent = "Starting…";
+  applyJob(btn.closest(".gr-item"), { status: "downloading", percent: 0, message: "Starting…" });
   try {
     await fetch("/grw_downloader/download", {
       method: "POST",
@@ -277,10 +355,10 @@ async function startDownload(name, btn) {
     btn.disabled = false;
     return;
   }
-  pollStatus(name, btn);
+  pollStatus(name);
 }
 
-function pollStatus(name, btn) {
+function pollStatus(name) {
   if (pollTimers[name]) clearInterval(pollTimers[name]);
   pollTimers[name] = setInterval(async () => {
     let s;
@@ -290,21 +368,14 @@ function pollStatus(name, btn) {
     } catch (e) {
       return;
     }
-    if (s.status === "downloading") {
-      btn.textContent = `${s.percent || 0}%${s.speed ? " " + s.speed : ""}`;
-    } else if (s.status === "done") {
-      btn.textContent = "Installed ✓";
-      btn.classList.remove("downloading");
-      btn.classList.add("done");
-      btn.disabled = true;
+    if (!s.status || s.status === "idle") return;
+    const row = findRow(name);
+    const button = row && row.querySelector(".gr-btn");
+    applyJob(row, s);
+    if (s.status === "done") {
       clearInterval(pollTimers[name]);
     } else if (s.status === "error") {
-      btn.textContent = "Error — retry";
-      btn.title = s.error || "";
-      btn.classList.remove("downloading");
-      btn.classList.add("error");
-      btn.disabled = false;
-      btn.onclick = () => startDownload(name, btn);
+      if (button) button.onclick = () => startDownload(name, button);
       clearInterval(pollTimers[name]);
     }
   }, 1000);

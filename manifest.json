@@ -34,7 +34,7 @@
   {
     "name": "10Eros-Max",
     "type": "diffusion",
-    "url": "hf download hf://TenStrip/10Eros-Max/10Eros_Max_h3_hybrid_beta5.safetensors"
+    "url": "hf://TenStrip/10Eros-Max/10Eros_Max_h3_hybrid_beta5.safetensors"
   },
   {
     "name": "MiniMax Video Vae",
