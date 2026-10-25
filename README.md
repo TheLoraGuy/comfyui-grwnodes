@@ -21,11 +21,13 @@ using `rclone` (for `b2:` sources) or the Hugging Face CLI (for `hf://` sources)
 - For `hf://` URLs: the Hugging Face CLI (`hf` or `huggingface-cli`) must be
   on `PATH` — typically `pip install -U "huggingface_hub[cli]"`. Optional:
   `pip install hf_transfer` for faster Hub transfers.
-- Set `HF_TOKEN` on the host. On Vast.ai, template environment variables are
-  stored in `/etc/environment` and are not automatically visible to ComfyUI.
-  The downloader reads that file (and `/workspace/.env`, then the HF token
-  file) and passes the token to the Hugging Face CLI. The Logs panel says
-  where the token was found. It never prints the token itself.
+- Set `HF_TOKEN` on the host. RunPod injects it into the container. Vast stores
+  template variables in `/etc/environment` and on the container entrypoint
+  (PID 1). ComfyUI often inherits neither. On startup this node copies the
+  token into its own process and passes `--token` to `hf download`. The Logs
+  panel says where it was found. It never prints the token. The Hub warning
+  is a response header, so it means that request still had no Authorization
+  header.
 
 If a tool is missing, downloads show an "Error — retry" state with the reason.
 

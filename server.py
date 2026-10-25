@@ -164,29 +164,84 @@ def _first_token(mapping):
     return None, None
 
 
-def huggingface_token():
-    """Find the HF token Vast stored outside this process.
+def read_proc_environ(pid):
+    """Read a process environment. Docker injects HF_TOKEN into PID 1."""
+    try:
+        with open(f"/proc/{pid}/environ", "rb") as handle:
+            raw = handle.read()
+    except OSError:
+        return {}
+    found = {}
+    for item in raw.split(b"\0"):
+        if not item or b"=" not in item:
+            continue
+        key, value = item.split(b"=", 1)
+        try:
+            found[key.decode()] = value.decode()
+        except UnicodeDecodeError:
+            continue
+    return found
 
-    Template environment variables are written to /etc/environment and sourced
-    by Vast's boot shell and login shells. ComfyUI started as a normal process
-    does not load that file, so os.environ often has no HF_TOKEN.
+
+def huggingface_token():
+    """Find HF_TOKEN from this process, the container entrypoint, or Vast's env file.
+
+    RunPod injects the secret into the container environment. Vast writes template
+    variables to /etc/environment and into PID 1. ComfyUI often does not inherit
+    either, so os.environ is empty even when the template is set.
     """
     token, name = _first_token(os.environ)
     if token:
         return token, f"process environment {name}"
 
+    pids = []
+    for pid in (os.getpid(), os.getppid(), 1):
+        if pid and pid not in pids:
+            pids.append(pid)
+    proc_envs = []
+    for pid in pids:
+        env_map = read_proc_environ(pid)
+        if not env_map:
+            continue
+        proc_envs.append(env_map)
+        token, name = _first_token(env_map)
+        if token:
+            return token, f"/proc/{pid}/environ ({name})"
+
     workspace = os.environ.get("WORKSPACE") or "/workspace"
-    for path in ("/etc/environment", os.path.join(workspace, ".env")):
+    env_files = [
+        "/etc/environment",
+        os.path.join(workspace, ".env"),
+        os.path.expanduser("~/.env"),
+        "/root/.env",
+    ]
+    env_dir = "/etc/environment.d"
+    try:
+        extra = sorted(os.listdir(env_dir))
+    except OSError:
+        extra = []
+    env_files.extend(os.path.join(env_dir, name) for name in extra)
+    for path in env_files:
         token, name = _first_token(read_env_file(path))
         if token:
             return token, f"{path} ({name})"
 
     homes = []
-    if os.environ.get("HF_HOME"):
-        homes.append(os.environ["HF_HOME"])
-    homes.append(os.path.join(workspace, ".hf_home"))
-    homes.append(os.path.join(os.path.expanduser("~"), ".cache", "huggingface"))
+    for env_map in (os.environ, *proc_envs):
+        hf_home = (env_map.get("HF_HOME") or "").strip()
+        if hf_home:
+            homes.append(hf_home)
+    homes.extend([
+        os.path.join(workspace, ".hf_home"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        "/root/.cache/huggingface",
+        os.path.join(os.path.expanduser("~"), ".huggingface"),
+    ])
+    seen = set()
     for home in homes:
+        if home in seen:
+            continue
+        seen.add(home)
         path = os.path.join(home, "token")
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as handle:
@@ -199,16 +254,28 @@ def huggingface_token():
 
 
 def apply_hf_token(env):
-    """Copy a discovered token into the download environment. Returns a log line."""
+    """Copy a discovered token into an environment mapping.
+
+    Returns (token or None, log line). The token is also passed as `--token`
+    because the Hub warning is sent when the request has no Authorization header.
+    Setting the variable alone is not enough if implicit tokens are disabled.
+    """
     token, source = huggingface_token()
     if not token:
-        return (
-            "Hugging Face auth: no HF_TOKEN in the process environment, "
+        return None, (
+            "Hugging Face auth: no HF_TOKEN in this process, PID 1, "
             "/etc/environment, the workspace .env, or the HF token file"
         )
     env["HF_TOKEN"] = token
     env["HUGGING_FACE_HUB_TOKEN"] = token
-    return f"Hugging Face auth: using token from {source}"
+    return token, f"Hugging Face auth: using token from {source}"
+
+
+def install_hf_token():
+    """Put the token on this process so ComfyUI's own Hub calls are authenticated."""
+    token, note = apply_hf_token(os.environ)
+    print(f"[GRW] {note}", flush=True)
+    return token
 
 
 def console(name, message):
@@ -383,6 +450,9 @@ async def run_download(name, item):
         if repo_type != "model":
             cmd.extend(["--repo-type", repo_type])
         cmd.extend(["--local-dir", dest_dir])
+        hf_token, _hf_note = apply_hf_token({})
+        if hf_token:
+            cmd.extend(["--token", hf_token])
         post_move_from = os.path.basename(out)
     elif url.startswith("http://") or url.startswith("https://"):
         cmd = ["wget", "-q", "--show-progress", "-O", out, url]
@@ -395,7 +465,8 @@ async def run_download(name, item):
         # Faster transfers when hf_transfer is installed (no-op otherwise).
         env.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
         if url.startswith("hf://") or url.startswith("hf:"):
-            console(name, apply_hf_token(env))
+            _token, note = apply_hf_token(env)
+            console(name, note)
 
         console(name, f"started -> {out}")
         proc = await asyncio.create_subprocess_exec(
@@ -466,6 +537,7 @@ async def run_download(name, item):
 
 
 def setup_routes():
+    install_hf_token()
     routes = PromptServer.instance.routes
 
     @routes.get("/grw_downloader/manifest")
