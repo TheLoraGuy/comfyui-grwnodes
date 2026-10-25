@@ -22,6 +22,11 @@
     "url": "hf://smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/minimax_h3_hybrid_fl2va_ref2va_b15-49-int8.safetensors"
   },
   {
+    "name": "h3_Singularity_ref2va_v1.3_int8.safetensors",
+    "type": "diffusion",
+    "url": "hf://WarmBloodAban/Minimax-h3_Singularity/Minimax-h3_Singularity_ref2va_v1.3_int8.safetensors"
+  },
+  {
     "name": "h3_hybrid_fl2va_ref2va_b20-49-int8.safetensors",
     "type": "diffusion",
     "url": "hf://smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/minimax_h3_hybrid_fl2va_ref2va_b20-49-int8.safetensors"
@@ -87,16 +92,6 @@
     "name": "fasth3_vsa_gate.safetensors",
     "type": "loras",
     "url": "hf://barelymining/ComfyUI-MiniMax-H3-FastVideo/fasth3_vsa_gate.safetensors"
-  },
-  {
-    "name": "rreels_000000750.safetensors",
-    "type": "loras",
-    "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000000750.safetensors"
-  },
-  {
-    "name": "rreels_000001000.safetensors",
-    "type": "loras",
-    "url": "hf://COMFYUI4NOOBS/RONALD/rreels_000001000.safetensors"
   },
   {
     "name": "h3_silu_temb_grid",
