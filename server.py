@@ -9,7 +9,7 @@ Exposes three HTTP routes on ComfyUI's own aiohttp server:
 
 Downloads run via:
   - `rclone copyto` for b2:// sources (8 streams, 64M cutoff)
-  - `hf download` for hf:// Hugging Face Hub sources
+  - Hugging Face Hub (`hf_hub_download`, or `hf download` if the library is missing) for hf:// sources
   - `wget` for plain http(s) URLs
 """
 
@@ -156,12 +156,75 @@ def read_env_file(path):
     return found
 
 
-def _first_token(mapping):
+# Anything shorter, or one of these placeholders, is not a user access token.
+# The Hub answers those with the "unauthenticated requests" warning.
+_TOKEN_PLACEHOLDERS = {
+    "hf_token",
+    "hugging_face_hub_token",
+    "huggingface_hub_token",
+    "none",
+    "null",
+    "undefined",
+    "changeme",
+    "your_token",
+    "token",
+    "placeholder",
+}
+
+
+def clean_hf_token(value):
+    """Strip quotes, a pasted assignment, and a leading Bearer prefix.
+
+    Vast and some startup scripts leave the quotes from /etc/environment in the
+    process value (`'hf_...'`). The Hub then treats the request as anonymous.
+    """
+    token = (value or "").replace("\ufeff", "").strip()
+    while len(token) >= 2 and token[0] == token[-1] and token[0] in "'\"":
+        token = token[1:-1].strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if "=" in token:
+        key, rest = token.split("=", 1)
+        if key.strip() in HF_TOKEN_NAMES:
+            token = rest.strip()
+            while len(token) >= 2 and token[0] == token[-1] and token[0] in "'\"":
+                token = token[1:-1].strip()
+    return token
+
+
+def token_usable(token):
+    if not token or len(token) < 20 or any(ch.isspace() for ch in token):
+        return False
+    if token.lower() in _TOKEN_PLACEHOLDERS or token.startswith("${") or token.startswith("<"):
+        return False
+    return re.fullmatch(r"[A-Za-z0-9_\-]+", token) is not None
+
+
+def token_shape(token):
+    """Non-secret description. Never include the token itself."""
+    starts = "yes" if token.startswith("hf_") else "no"
+    return f"length {len(token)}, starts with hf_: {starts}"
+
+
+def _token_rank(token):
+    if not token_usable(token):
+        return 0
+    if token.startswith("hf_"):
+        return 2
+    return 1
+
+
+def _collect_tokens(candidates, mapping, source_for):
+    if not mapping:
+        return
     for name in HF_TOKEN_NAMES:
-        token = (mapping.get(name) or "").strip()
-        if token:
-            return token, name
-    return None, None
+        raw = mapping.get(name)
+        if raw is None:
+            continue
+        cleaned = clean_hf_token(raw)
+        if not cleaned:
+            continue
+        candidates.append((cleaned, source_for(name), cleaned != str(raw).strip()))
 
 
 def read_proc_environ(pid):
@@ -184,15 +247,17 @@ def read_proc_environ(pid):
 
 
 def huggingface_token():
-    """Find HF_TOKEN from this process, the container entrypoint, or Vast's env file.
+    """Find a real Hub token from this process, PID 1, Vast's env file, or the token file.
 
     RunPod injects the secret into the container environment. Vast writes template
     variables to /etc/environment and into PID 1. ComfyUI often does not inherit
-    either, so os.environ is empty even when the template is set.
+    either. A non-empty value is not enough: quotes, a Bearer prefix, or a
+    placeholder still make the Hub answer as if no token was sent.
+
+    Returns (token or None, source or None, detail). Detail never contains the token.
     """
-    token, name = _first_token(os.environ)
-    if token:
-        return token, f"process environment {name}"
+    candidates = []
+    _collect_tokens(candidates, os.environ, lambda name: f"process environment {name}")
 
     pids = []
     for pid in (os.getpid(), os.getppid(), 1):
@@ -204,9 +269,7 @@ def huggingface_token():
         if not env_map:
             continue
         proc_envs.append(env_map)
-        token, name = _first_token(env_map)
-        if token:
-            return token, f"/proc/{pid}/environ ({name})"
+        _collect_tokens(candidates, env_map, lambda name, pid=pid: f"/proc/{pid}/environ ({name})")
 
     workspace = os.environ.get("WORKSPACE") or "/workspace"
     env_files = [
@@ -222,9 +285,7 @@ def huggingface_token():
         extra = []
     env_files.extend(os.path.join(env_dir, name) for name in extra)
     for path in env_files:
-        token, name = _first_token(read_env_file(path))
-        if token:
-            return token, f"{path} ({name})"
+        _collect_tokens(candidates, read_env_file(path), lambda name, path=path: f"{path} ({name})")
 
     homes = []
     for env_map in (os.environ, *proc_envs):
@@ -245,42 +306,80 @@ def huggingface_token():
         path = os.path.join(home, "token")
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as handle:
-                token = handle.read().strip()
+                raw = handle.read()
         except OSError:
             continue
-        if token:
-            return token, path
-    return None, None
+        cleaned = clean_hf_token(raw)
+        if cleaned:
+            candidates.append((cleaned, path, cleaned != raw.strip()))
 
-
-def apply_hf_token(env):
-    """Copy a discovered token into an environment mapping.
-
-    Returns (token or None, log line). The token is also passed as `--token`
-    because the Hub warning is sent when the request has no Authorization header.
-    Setting the variable alone is not enough if implicit tokens are disabled.
-    """
-    token, source = huggingface_token()
-    if not token:
-        return None, (
+    best = None
+    best_rank = 0
+    for item in candidates:
+        rank = _token_rank(item[0])
+        if rank > best_rank:
+            best = item
+            best_rank = rank
+    if best is None:
+        if candidates:
+            token, source, _dirty = candidates[0]
+            return None, None, (
+                f"Hugging Face auth: value from {source} is not a Hub token "
+                f"({token_shape(token)}). A user token starts with hf_."
+            )
+        return None, None, (
             "Hugging Face auth: no HF_TOKEN in this process, PID 1, "
             "/etc/environment, the workspace .env, or the HF token file"
         )
+
+    token, source, dirty = best
+    bits = [token_shape(token)]
+    if dirty:
+        bits.append("quotes or a Bearer prefix removed")
+    if candidates[0][1] != source and _token_rank(candidates[0][0]) < best_rank:
+        bits.append(f"ignored unusable value in {candidates[0][1]}")
+    return token, source, ", ".join(bits)
+
+
+def apply_hf_token(env):
+    """Copy a usable token into an environment mapping.
+
+    Returns (token or None, log line). The download also passes this string as
+    the explicit Hub token. A process variable alone is not sent when
+    HF_HUB_DISABLE_IMPLICIT_TOKEN is set, and a quoted value is rejected by the Hub.
+    """
+    token, source, detail = huggingface_token()
+    env["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "0"
+    if not token:
+        return None, detail
     env["HF_TOKEN"] = token
     env["HUGGING_FACE_HUB_TOKEN"] = token
-    return token, f"Hugging Face auth: using token from {source}"
+    return token, f"Hugging Face auth: using token from {source} ({detail})"
+
+
+def enable_implicit_hf_token():
+    """The disable flag is read once, at import, and then ignores the environment."""
+    os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "0"
+    try:
+        import huggingface_hub.constants as hf_constants
+        hf_constants.HF_HUB_DISABLE_IMPLICIT_TOKEN = False
+    except Exception:
+        pass
 
 
 def install_hf_token():
     """Put the token on this process so ComfyUI's own Hub calls are authenticated."""
     token, note = apply_hf_token(os.environ)
+    enable_implicit_hf_token()
     print(f"[GRW] {note}", flush=True)
     return token
 
 
-def console(name, message):
+def console(name, message, store=True):
     """Print one line. ComfyUI's Logs panel mirrors stdout/stderr."""
     print(f"[GRW] {name}: {message}", flush=True)
+    if not store:
+        return
     job = JOBS.get(name)
     if job is not None:
         job["message"] = message
@@ -401,6 +500,89 @@ def progress_message(percent, speed, eta):
     return " · ".join(parts)
 
 
+def _format_rate(rate):
+    if not rate or rate < 0:
+        return ""
+    units = ("B/s", "KB/s", "MB/s", "GB/s")
+    value = float(rate)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.1f}{unit}"
+        value /= 1024
+    return ""
+
+
+def _job_tqdm(name):
+    from tqdm.auto import tqdm
+
+    class GRWTqdm(tqdm):
+        def update(self, n=1):
+            displayed = super().update(n)
+            job = JOBS.get(name)
+            total = self.total or 0
+            if job is None or job.get("status") != "downloading" or not total:
+                return displayed
+            percent = max(0, min(99, int((self.n or 0) * 100 / total)))
+            job["percent"] = percent
+            speed = _format_rate((self.format_dict or {}).get("rate"))
+            if speed:
+                job["speed"] = speed
+            job["message"] = progress_message(percent, job.get("speed", ""), job.get("eta", ""))
+            now = time.monotonic()
+            bucket = percent // 5
+            if bucket != job.get("_bucket", -1) or now - job.get("_console_at", 0) >= 15:
+                console(name, job["message"])
+                job["_bucket"] = bucket
+                job["_console_at"] = now
+            return displayed
+
+    return GRWTqdm
+
+
+def _hf_download_blocking(name, repo_id, file_path, repo_type, dest_dir, token):
+    """Download on a worker thread with an explicit token string."""
+    enable_implicit_hf_token()
+    tqdm_cls = _job_tqdm(name)
+    if file_path:
+        from huggingface_hub import hf_hub_download
+        return hf_hub_download(
+            repo_id=repo_id,
+            filename=file_path,
+            repo_type=repo_type,
+            local_dir=dest_dir,
+            token=token,
+            tqdm_class=tqdm_cls,
+        )
+    from huggingface_hub import snapshot_download
+    return snapshot_download(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        local_dir=dest_dir,
+        token=token,
+        tqdm_class=tqdm_cls,
+    )
+
+
+def _finish_download(name, out, rc, tail, post_move_from):
+    if rc == 0 and post_move_from:
+        found = find_downloaded_file(os.path.dirname(out), post_move_from)
+        if found and os.path.abspath(found) != os.path.abspath(out):
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            shutil.move(found, out)
+
+    if rc == 0 and os.path.exists(out):
+        JOBS[name].update(status="done", percent=100, message="Installed")
+        console(name, f"100% installed at {out}")
+        return
+    detail = next((t for t in reversed(tail) if t.strip()), "")
+    err = f"process exited with code {rc}"
+    if detail:
+        err = f"{err}: {detail}"
+    if rc == 0 and not os.path.exists(out):
+        err = f"download finished but file missing at {out}"
+    fail_job(name, err)
+
+
 async def run_download(name, item):
     JOBS[name] = {
         "status": "downloading",
@@ -420,6 +602,7 @@ async def run_download(name, item):
     if rewritten:
         console(name, f"rewrote pasted CLI command to {url}")
 
+    hf_token = None
     if url.startswith("b2:") or url.startswith("b2://"):
         # Normalize b2:// (as written in chat) down to rclone's expected b2: form.
         rclone_src = url.replace("b2://", "b2:", 1)
@@ -431,10 +614,6 @@ async def run_download(name, item):
             "--stats", "1s",
         ]
     elif url.startswith("hf://") or url.startswith("hf:"):
-        hf_cli = resolve_hf_cli()
-        if not hf_cli:
-            fail_job(name, "Hugging Face CLI not found (install: pip install -U 'huggingface_hub[cli]')")
-            return
         try:
             repo_type, repo_id, file_path = parse_hf_url(url)
         except ValueError as e:
@@ -442,18 +621,34 @@ async def run_download(name, item):
             return
 
         dest_dir = os.path.dirname(out)
-        # Equivalent to: hf download hf://org/repo/file.safetensors --local-dir ...
-        # Split form works on both `hf` and older `huggingface-cli`.
-        cmd = [hf_cli, "download", repo_id]
-        if file_path:
-            cmd.append(file_path)
-        if repo_type != "model":
-            cmd.extend(["--repo-type", repo_type])
-        cmd.extend(["--local-dir", dest_dir])
-        hf_token, _hf_note = apply_hf_token({})
-        if hf_token:
-            cmd.extend(["--token", hf_token])
         post_move_from = os.path.basename(out)
+        hf_token, note = apply_hf_token(os.environ)
+        enable_implicit_hf_token()
+        console(name, note)
+        console(name, f"started -> {out}")
+        try:
+            await asyncio.to_thread(
+                _hf_download_blocking, name, repo_id, file_path, repo_type, dest_dir, hf_token,
+            )
+        except ImportError:
+            hf_cli = resolve_hf_cli()
+            if not hf_cli:
+                fail_job(name, "Hugging Face library not found (install: pip install -U 'huggingface_hub[cli]')")
+                return
+            cmd = [hf_cli, "download", repo_id]
+            if file_path:
+                cmd.append(file_path)
+            if repo_type != "model":
+                cmd.extend(["--repo-type", repo_type])
+            cmd.extend(["--local-dir", dest_dir])
+            if hf_token:
+                cmd.extend(["--token", hf_token])
+        except Exception as e:  # noqa: BLE001 - surface Hub failures to the UI
+            fail_job(name, f"Hugging Face download failed: {e}")
+            return
+        else:
+            _finish_download(name, out, 0, [], post_move_from)
+            return
     elif url.startswith("http://") or url.startswith("https://"):
         cmd = ["wget", "-q", "--show-progress", "-O", out, url]
     else:
@@ -462,13 +657,11 @@ async def run_download(name, item):
 
     try:
         env = os.environ.copy()
-        # Faster transfers when hf_transfer is installed (no-op otherwise).
-        env.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
         if url.startswith("hf://") or url.startswith("hf:"):
-            _token, note = apply_hf_token(env)
-            console(name, note)
-
-        console(name, f"started -> {out}")
+            apply_hf_token(env)
+            # Older Hub builds switch to hf_transfer when this is 1, and that
+            # path has sent requests the Hub counts as anonymous.
+            env.pop("HF_HUB_ENABLE_HF_TRANSFER", None)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -485,6 +678,18 @@ async def run_download(name, item):
             tail.append(line)
             if len(tail) > 20:
                 tail.pop(0)
+            lowered = line.lower()
+            # The Hub prints this when a request had no usable Authorization.
+            # With a token attached, keep the percent note instead of this line.
+            if "unauthenticated requests" in lowered and hf_token:
+                if not JOBS[name].get("_anon_logged"):
+                    console(
+                        name,
+                        "Hub reported an unauthenticated request. A token was still attached to this download.",
+                        store=False,
+                    )
+                    JOBS[name]["_anon_logged"] = True
+                continue
             percent, speed, eta = parse_progress(line)
             if percent is not None:
                 JOBS[name]["percent"] = percent
@@ -500,10 +705,9 @@ async def run_download(name, item):
             JOBS[name]["message"] = message
             now = time.monotonic()
             bucket = shown // 5
-            lowered = line.lower()
             looks_like_error = any(
-                token in lowered
-                for token in ("error", "traceback", "unauthorized", "denied", "not found", "401", "403", "404")
+                word in lowered
+                for word in ("error", "traceback", "unauthorized", "unauthenticated", "denied", "not found", "401", "403", "404")
             )
             due = last_console == 0.0 or now - last_console >= 15
             if looks_like_error or (percent is not None and (bucket != last_bucket or due)) or (percent is None and due and message != JOBS[name].get("_logged")):
@@ -512,24 +716,7 @@ async def run_download(name, item):
                 last_bucket = bucket
                 last_console = now
         rc = await proc.wait()
-
-        if rc == 0 and post_move_from:
-            found = find_downloaded_file(os.path.dirname(out), post_move_from)
-            if found and os.path.abspath(found) != os.path.abspath(out):
-                os.makedirs(os.path.dirname(out), exist_ok=True)
-                shutil.move(found, out)
-
-        if rc == 0 and os.path.exists(out):
-            JOBS[name].update(status="done", percent=100, message="Installed")
-            console(name, f"100% installed at {out}")
-        else:
-            detail = next((t for t in reversed(tail) if t.strip()), "")
-            err = f"process exited with code {rc}"
-            if detail:
-                err = f"{err}: {detail}"
-            if rc == 0 and not os.path.exists(out):
-                err = f"download finished but file missing at {out}"
-            fail_job(name, err)
+        _finish_download(name, out, rc, tail, post_move_from)
     except FileNotFoundError as e:
         fail_job(name, f"command not found: {e}")
     except Exception as e:  # noqa: BLE001 - surface any failure to the UI

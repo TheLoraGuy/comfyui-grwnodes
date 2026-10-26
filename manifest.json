@@ -5,6 +5,11 @@
     "url": "hf://MATLOWAI/minimax-h3-fused-turbo-int8-convrot/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors"
   },
   {
+    "name": "fasth3_omniref_8step_pruned_int8_convrot.safetensors",
+    "type": "diffusion",
+    "url": "hf://FastVideo/FastH3-Omni-Comfy/diffusion_models/fasth3_omniref_8step_pruned_int8_convrot.safetensors"
+  },
+  {
     "name": "h3_bf16_CONSERVATIVE_v5.safetensors",
     "type": "latent_upscale_models",
     "url": "hf://Asirus/Minimax-H3-Latent-Upscaler-BF16-MAXQUALITY/minimax_h3_bf16_CONSERVATIVE_v5.safetensors",
@@ -79,6 +84,11 @@
     "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
   },
   {
+    "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+    "type": "text_encoders",
+    "url": "hf://FastVideo/FastH3-Omni-Comfy/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+  },
+  {
     "name": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
@@ -99,9 +109,14 @@
     "url": "hf://barelymining/ComfyUI-MiniMax-H3-FastVideo/fasth3_vsa_gate.safetensors"
   },
   {
-    "name": "h3_silu_temb_grid",
+    "name": "h3_silu_temb_grid.safetensors",
     "type": "h3_adaln",
     "url": "hf://deAPI-ai/minimax-h3-33b-int8/loras/h3_silu_temb_grid.safetensors"
+  },
+  {
+    "name": "h3_Singularity-x-10Eros-Max_PRISM/adaln_affine.safetensors",
+    "type": "h3_adaln",
+    "url": "hf://OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/adaln_affine.safetensors"
   },
   {
     "name": "film_net_fp16",

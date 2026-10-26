@@ -34,6 +34,7 @@ const STYLE = `
 .gr-item-main { flex: 1; min-width: 0; }
 .gr-item-name { font-size: 13px; }
 .gr-item-type { font-size: 11px; color: #888; margin-left: 6px; }
+.gr-item-size { font-size: 11px; color: #aaa; margin-left: 6px; }
 .gr-progress {
   display: none; height: 6px; background: #333; border-radius: 3px;
   margin-top: 6px; overflow: hidden;
@@ -101,6 +102,37 @@ function escapeHtml(value) {
 
 function itemGroup(item) {
   return String(item.group || "").trim();
+}
+
+const TYPE_LABELS = {
+  diffusion: "Diffusion",
+  unet: "UNet",
+  checkpoint: "Checkpoints",
+  checkpoints: "Checkpoints",
+  vae: "VAEs",
+  text_encoder: "Text encoders",
+  text_encoders: "Text encoders",
+  upscale_models: "Upscalers",
+  latent_upscale_models: "Upscalers",
+  latent_upscaled_models: "Upscalers",
+  refmods: "Refmods",
+  lora: "Loras",
+  loras: "Loras",
+  h3_adaln: "H3 AdaLN",
+  frame_interpolation: "Frame interpolation",
+};
+
+function typeLabel(type) {
+  const key = String(type || "").trim();
+  if (TYPE_LABELS[key]) return TYPE_LABELS[key];
+  if (!key) return "Other";
+  return key.replace(/_/g, " ");
+}
+
+function sectionName(item) {
+  const custom = itemGroup(item);
+  if (custom) return custom;
+  return typeLabel(item.type);
 }
 
 function injectStyle() {
@@ -182,18 +214,31 @@ function renderList() {
     return;
   }
 
-  items.filter((item) => !itemGroup(item)).forEach((item) => {
-    list.appendChild(renderItemRow(item));
-  });
-
   const seenGroups = new Set();
   items.forEach((item) => {
-    const group = itemGroup(item);
-    if (!group || seenGroups.has(group)) return;
+    const group = sectionName(item);
+    if (seenGroups.has(group)) return;
     seenGroups.add(group);
-    const members = items.filter((it) => itemGroup(it) === group);
+    const members = items.filter((it) => sectionName(it) === group);
     list.appendChild(renderGroup(group, members));
   });
+}
+
+function itemSize(item) {
+  const raw = item && item.size;
+  if (raw == null || raw === "") return "";
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = raw;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    const digits = unit === 0 || value >= 100 ? 0 : 1;
+    return `${value.toFixed(digits)} ${units[unit]}`;
+  }
+  return String(raw).trim();
 }
 
 function renderItemRow(item) {
@@ -203,6 +248,7 @@ function renderItemRow(item) {
   const row = document.createElement("div");
   row.className = "gr-item" + (downloading ? " is-downloading" : "") + (failed ? " is-failed" : "");
   row.dataset.name = item.name;
+  const size = itemSize(item);
   const label = item.installed
     ? "Installed ✓"
     : downloading
@@ -215,6 +261,7 @@ function renderItemRow(item) {
       <div>
         <span class="gr-item-name">${escapeHtml(item.name)}</span>
         <span class="gr-item-type">${escapeHtml(item.type)}</span>
+        ${size ? `<span class="gr-item-size">${escapeHtml(size)}</span>` : ""}
       </div>
       <div class="gr-progress"><span></span></div>
       <div class="gr-item-note"></div>

@@ -23,11 +23,14 @@ using `rclone` (for `b2:` sources) or the Hugging Face CLI (for `hf://` sources)
   `pip install hf_transfer` for faster Hub transfers.
 - Set `HF_TOKEN` on the host. RunPod injects it into the container. Vast stores
   template variables in `/etc/environment` and on the container entrypoint
-  (PID 1). ComfyUI often inherits neither. On startup this node copies the
-  token into its own process and passes `--token` to `hf download`. The Logs
-  panel says where it was found. It never prints the token. The Hub warning
-  is a response header, so it means that request still had no Authorization
-  header.
+  (PID 1). ComfyUI often inherits neither. On startup this node copies a
+  usable token into its own process and passes that string on the download.
+  Quotes around the value, a `Bearer ` prefix, and placeholders are removed.
+  A value that does not look like a Hub token does not win over a real `hf_…`
+  token found later. The Logs line names the source, the length, and whether
+  it starts with `hf_`. It never prints the token. Restart ComfyUI after
+  updating this file. The Hub warning is a response header: it means that
+  request still had no usable Authorization header.
 
 If a tool is missing, downloads show an "Error — retry" state with the reason.
 
@@ -40,16 +43,24 @@ Edit `manifest.json` in this folder. Each entry:
   "name": "Human-readable label shown in the UI",
   "type": "diffusion",
   "group": "MiniMax H3",
+  "size": "18.2 GB",
   "url": "b2:H3-RUNPOD/models/your-file.safetensors"
 }
 ```
 
-`group` is optional. Items with no `group` are listed first, as a flat list
-in manifest order. Below them, every item that shares the same `group`
-string is listed together inside one collapsible section (open by default).
-The match is exact after trimming whitespace, so `"MiniMax H3"` and
-`"minimax h3"` are two different sections. A group only collects items on
-the same tab — Models and Loras are filtered before grouping.
+Items on a tab are listed in collapsible sections, one per `type`, in the
+order each type first appears. Known types use a short title (Diffusion,
+VAEs, Text encoders, Upscalers, H3 AdaLN, Frame interpolation). Other types
+use the type name with underscores turned into spaces. Sections start open.
+
+`group` is optional and overrides that title for the items that set it.
+The match is exact after trimming whitespace, so `"vaes"` and `"VAEs"` are
+two different sections. A section only collects items on the same tab —
+Models and Loras are filtered before grouping.
+
+`size` is optional. When it is set, the panel shows it after the type.
+A string such as `"18.2 GB"` is shown as written. A number is treated as
+bytes and shown in KB, MB, or GB. Leave it out when you do not know the size.
 
 `type` controls which ComfyUI subfolder the file lands in, and which tab it
 shows up under:
