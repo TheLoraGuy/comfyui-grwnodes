@@ -81,6 +81,12 @@
     "group": "vaes"
   },
   {
+    "name": "qwen_image_vae.safetensors",
+    "type": "vae",
+    "url": "hf download hf://Comfy-Org/Krea-2/vae/qwen_image_vae.safetensors",
+    "group": "vaes"
+  },
+  {
     "name": "qwen3vl_32b_minimax_h3_bf16.safetensors",
     "type": "text_encoders",
     "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
