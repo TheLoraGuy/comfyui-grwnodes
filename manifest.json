@@ -97,6 +97,11 @@
     "url": "hf://FastVideo/FastH3-Omni-Comfy/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
   },
   {
+    "name": "qwen3-vl-4b-heretic.safetensors",
+    "type": "text_encoders",
+    "url": "hf://DreamFast/Qwen3-VL-4b-Heretic-ComfyUI/qwen3-vl-4b-heretic.safetensors"
+  },
+  {
     "name": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
     "type": "loras",
     "url": "hf://lightx2v/Minimax-h3-Turbo/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
