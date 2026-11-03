@@ -29,6 +29,11 @@
     "url": "hf://smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models/minimax_h3_hybrid_fl2va_ref2va_b15-49-int8.safetensors"
   },
   {
+    "name": "krea2_turbo_bf16.safetensors",
+    "type": "diffusion",
+    "url": "hf://Comfy-Org/Krea-2/diffusion_models/krea2_turbo_bf16.safetensors"
+  },
+  {
     "name": "h3_Singularity_x_10Eros-Max_PRISM_fp16.safetensors",
     "type": "diffusion",
     "url": "hf://OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/Minimax-h3_Singularity_x_10Eros-Max_PRISM_fp16.safetensors"
@@ -83,13 +88,24 @@
   {
     "name": "qwen_image_vae.safetensors",
     "type": "vae",
-    "url": "hf download hf://Comfy-Org/Krea-2/vae/qwen_image_vae.safetensors",
+    "url": "hf://Comfy-Org/Krea-2/vae/qwen_image_vae.safetensors",
+    "group": "vaes"
+  }, 
+  {
+    "name": "qwen_image_sharp_vae_bf16.safetensors",
+    "type": "vae",
+    "url": "hf://silvermoong/Qwen-Image-Sharp-VAE/qwen_image_sharp_vae_bf16.safetensors",
     "group": "vaes"
   },
   {
     "name": "qwen3vl_32b_minimax_h3_bf16.safetensors",
     "type": "text_encoders",
     "url": "hf://Comfy-Org/MiniMax-H3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"
+  },
+  {
+    "name": "qwen3vl_4b_bf16.safetensors",
+    "type": "text_encoders",
+    "url": "hf://Comfy-Org/Krea-2/text_encoders/qwen3vl_4b_bf16.safetensors"
   },
   {
     "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
@@ -120,6 +136,11 @@
     "name": "fasth3_vsa_gate.safetensors",
     "type": "loras",
     "url": "hf://barelymining/ComfyUI-MiniMax-H3-FastVideo/fasth3_vsa_gate.safetensors"
+  },
+  {
+    "name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+    "type": "loras",
+    "url": "hf://Comfy-Org/MiniMax-H3/loras/pika_h3_flex_ref2va_v1_bf16.safetensors"
   },
   {
     "name": "h3_silu_temb_grid.safetensors",
