@@ -78,6 +78,12 @@
     "type": "vae",
     "url": "hf://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors",
     "group": "vaes"
+  }, 
+  {
+    "name": "p-h3-image_vae_bf16.safetensors",
+    "type": "vae",
+    "url": "hf://PrunaAI/P-H3-Image-Comfy/vae/p-h3-image_vae_bf16.safetensors",
+    "group": "vaes"
   },
   {
     "name": "minimax_h3_audio_vae_fp32.safetensors",
@@ -113,6 +119,21 @@
     "url": "hf://FastVideo/FastH3-Omni-Comfy/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
   },
   {
+    "name": "p-h3-image_text_encoder_bf16.safetensors",
+    "type": "text_encoders",
+    "url": "hf://PrunaAI/P-H3-Image-Comfy/text_encoders/p-h3-image_text_encoder_bf16.safetensors"
+  },
+  {
+    "name": "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors",
+    "type": "text_encoders",
+    "url": "hf://Momoking/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4/qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors"
+  },
+  {
+    "name": "p-h3-image_prompt_upsampler_bf16.safetensors",
+    "type": "text_encoders",
+    "url": "hf://PrunaAI/P-H3-Image-Comfy/text_encoders/p-h3-image_prompt_upsampler_bf16.safetensors"
+  },
+  {
     "name": "qwen3-vl-4b-heretic.safetensors",
     "type": "text_encoders",
     "url": "hf://DreamFast/Qwen3-VL-4b-Heretic-ComfyUI/qwen3-vl-4b-heretic.safetensors"
@@ -141,6 +162,11 @@
     "name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
     "type": "loras",
     "url": "hf://Comfy-Org/MiniMax-H3/loras/pika_h3_flex_ref2va_v1_bf16.safetensors"
+  },
+  {
+    "name": "p-h3-image_lora_bf16.safetensors",
+    "type": "loras",
+    "url": "hf://PrunaAI/P-H3-Image-Comfy/loras/p-h3-image_lora_bf16.safetensors"
   },
   {
     "name": "h3_silu_temb_grid.safetensors",
